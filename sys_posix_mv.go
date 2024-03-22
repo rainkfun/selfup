@@ -1,4 +1,4 @@
-package overseer
+package selfup
 
 // TODO(@jpillora) borrowed from https://github.com/aisola/go-coreutils/blob/master/mv/mv.go
 //

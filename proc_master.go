@@ -1,4 +1,4 @@
-package overseer
+package selfup
 
 import (
 	"bytes"
@@ -20,9 +20,9 @@ import (
 	"time"
 )
 
-var tmpBinPath = filepath.Join(os.TempDir(), "overseer-"+token()+extension())
+var tmpBinPath = filepath.Join(os.TempDir(), "selfup-"+token()+extension())
 
-//a overseer master process
+// a selfup master process
 type master struct {
 	*Config
 	slaveID             int
@@ -176,7 +176,7 @@ func (mp *master) retreiveFileDescriptors() error {
 	return nil
 }
 
-//fetchLoop is run in a goroutine
+// fetchLoop is run in a goroutine
 func (mp *master) fetchLoop() {
 	min := mp.Config.MinFetchInterval
 	time.Sleep(min)
@@ -267,7 +267,7 @@ func (mp *master) fetch() {
 			return
 		}
 	}
-	//overseer sanity check, dont replace our good binary with a non-executable file
+	//selfup sanity check, dont replace our good binary with a non-executable file
 	tokenIn := token()
 	cmd := exec.Command(tmpBinPath)
 	cmd.Env = append(os.Environ(), []string{envBinCheck + "=" + tokenIn}...)
@@ -276,7 +276,7 @@ func (mp *master) fetch() {
 	go func() {
 		time.Sleep(5 * time.Second)
 		if !returned {
-			mp.warnf("sanity check against fetched executable timed-out, check overseer is running")
+			mp.warnf("sanity check against fetched executable timed-out, check selfup is running")
 			if cmd.Process != nil {
 				cmd.Process.Kill()
 			}
@@ -331,7 +331,7 @@ func (mp *master) triggerRestart() {
 	}
 }
 
-//not a real fork
+// not a real fork
 func (mp *master) forkLoop() error {
 	//loop, restart command
 	for {
@@ -412,13 +412,13 @@ func (mp *master) fork() error {
 
 func (mp *master) debugf(f string, args ...interface{}) {
 	if mp.Config.Debug {
-		log.Printf("[overseer master] "+f, args...)
+		log.Printf("[selfup master] "+f, args...)
 	}
 }
 
 func (mp *master) warnf(f string, args ...interface{}) {
 	if mp.Config.Debug || !mp.Config.NoWarn {
-		log.Printf("[overseer master] "+f, args...)
+		log.Printf("[selfup master] "+f, args...)
 	}
 }
 

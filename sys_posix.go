@@ -1,6 +1,7 @@
+//go:build linux || darwin || freebsd
 // +build linux darwin freebsd
 
-package overseer
+package selfup
 
 //this file attempts to contain all posix
 //specific stuff, that needs to be implemented

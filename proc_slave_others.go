@@ -1,6 +1,7 @@
+//go:build !windows
 // +build !windows
 
-package overseer
+package selfup
 
 import (
 	"fmt"

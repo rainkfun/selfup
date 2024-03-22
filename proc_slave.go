@@ -1,4 +1,4 @@
-package overseer
+package selfup
 
 import (
 	"fmt"
@@ -12,16 +12,16 @@ import (
 
 var (
 	//DisabledState is a placeholder state for when
-	//overseer is disabled and the program function
+	//selfup is disabled and the program function
 	//is run manually.
 	DisabledState = State{Enabled: false}
 )
 
-// State contains the current run-time state of overseer
+// State contains the current run-time state of selfup
 type State struct {
-	//whether overseer is running enabled. When enabled,
+	//whether selfup is running enabled. When enabled,
 	//this program will be running in a child process and
-	//overseer will perform rolling upgrades.
+	//selfup will perform rolling upgrades.
 	Enabled bool
 	//ID is a SHA-1 hash of the current running binary
 	ID string
@@ -44,12 +44,12 @@ type State struct {
 	BinPath string
 }
 
-//a overseer slave process
+//a selfup slave process
 
 type slave struct {
 	*Config
 	id         string
-	listeners  []*overseerListener
+	listeners  []*selfupListener
 	masterPid  int
 	masterProc *os.Process
 	state      State
@@ -84,7 +84,7 @@ func (sp *slave) initFileDescriptors() error {
 	if err != nil {
 		return fmt.Errorf("invalid %s integer", envNumFDs)
 	}
-	sp.listeners = make([]*overseerListener, numFDs)
+	sp.listeners = make([]*selfupListener, numFDs)
 	sp.state.Listeners = make([]net.Listener, numFDs)
 	for i := 0; i < numFDs; i++ {
 		f := os.NewFile(uintptr(3+i), "")
@@ -142,12 +142,12 @@ func (sp *slave) triggerRestart() {
 
 func (sp *slave) debugf(f string, args ...interface{}) {
 	if sp.Config.Debug {
-		log.Printf("[overseer slave#"+sp.id+"] "+f, args...)
+		log.Printf("[selfup slave#"+sp.id+"] "+f, args...)
 	}
 }
 
 func (sp *slave) warnf(f string, args ...interface{}) {
 	if sp.Config.Debug || !sp.Config.NoWarn {
-		log.Printf("[overseer slave#"+sp.id+"] "+f, args...)
+		log.Printf("[selfup slave#"+sp.id+"] "+f, args...)
 	}
 }
