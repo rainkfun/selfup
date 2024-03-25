@@ -1,6 +1,6 @@
 # selfup
 
-[![GoDoc](https://godoc.org/github.com/zhubiaook/selfup?status.svg)](https://godoc.org/github.com/zhubiaook/selfup)   [![Tests](https://github.com/zhubiaook/selfup/workflows/Tests/badge.svg)](https://github.com/zhubiaook/selfup/actions?workflow=Tests)
+[![GoDoc](https://godoc.org/github.com/rainkfun/selfup?status.svg)](https://godoc.org/github.com/rainkfun/selfup)   [![Tests](https://github.com/rainkfun/selfup/workflows/Tests/badge.svg)](https://github.com/rainkfun/selfup/actions?workflow=Tests)
 
 `selfup` is a package for creating monitorable, gracefully restarting, self-upgrading binaries in Go (golang). The main goal of this project is to facilitate the creation of self-upgrading binaries which play nice with standard process managers, secondly it should expose a small and simple API with reasonable defaults.
 
@@ -18,7 +18,7 @@ Commonly, graceful restarts are performed by the active process (*dark blue*) cl
 ### Install
 
 ```sh
-go get github.com/zhubiaook/selfup
+go get github.com/rainkfun/selfup
 ```
 
 ### Quick example
@@ -34,8 +34,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/zhubiaook/selfup"
-	"github.com/zhubiaook/selfup/fetcher"
+	"github.com/rainkfun/selfup"
+	"github.com/rainkfun/selfup/fetcher"
 )
 
 //create another main() to run the selfup process
@@ -73,7 +73,7 @@ func prog(state selfup.State) {
 * Once a binary is received, it is run with a simple echo token to confirm it is a `selfup` binary.
 * Except for scheduled restarts, the active child process exiting will cause the main process to exit with the same code. So, **`selfup` is not a process manager**.
 
-See [Config](https://godoc.org/github.com/zhubiaook/selfup#Config)uration options [here](https://godoc.org/github.com/zhubiaook/selfup#Config) and the runtime [State](https://godoc.org/github.com/zhubiaook/selfup#State) available to your program [here](https://godoc.org/github.com/zhubiaook/selfup#State).
+See [Config](https://godoc.org/github.com/rainkfun/selfup#Config)uration options [here](https://godoc.org/github.com/rainkfun/selfup#Config) and the runtime [State](https://godoc.org/github.com/rainkfun/selfup#State) available to your program [here](https://godoc.org/github.com/rainkfun/selfup#State).
 
 ### More examples
 
@@ -157,12 +157,12 @@ func main() {
 
 ### More documentation
 
-* [Core `selfup` package](https://godoc.org/github.com/zhubiaook/selfup)
-* [Common `fetcher.Interface`](https://godoc.org/github.com/zhubiaook/selfup/fetcher#Interface)
-	* [File fetcher](https://godoc.org/github.com/zhubiaook/selfup/fetcher#File)
-	* [HTTP fetcher](https://godoc.org/github.com/zhubiaook/selfup/fetcher#HTTP)
-	* [S3 fetcher](https://godoc.org/github.com/zhubiaook/selfup/fetcher#S3)
-	* [Github fetcher](https://godoc.org/github.com/zhubiaook/selfup/fetcher#Github)
+* [Core `selfup` package](https://godoc.org/github.com/rainkfun/selfup)
+* [Common `fetcher.Interface`](https://godoc.org/github.com/rainkfun/selfup/fetcher#Interface)
+	* [File fetcher](https://godoc.org/github.com/rainkfun/selfup/fetcher#File)
+	* [HTTP fetcher](https://godoc.org/github.com/rainkfun/selfup/fetcher#HTTP)
+	* [S3 fetcher](https://godoc.org/github.com/rainkfun/selfup/fetcher#S3)
+	* [Github fetcher](https://godoc.org/github.com/rainkfun/selfup/fetcher#Github)
 
 ### Third-party Fetchers
 

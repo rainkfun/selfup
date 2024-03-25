@@ -116,7 +116,7 @@ func WMIQueryWithContext(ctx context.Context, query string, dst any, connectServ
 	}
 }
 
-// overwrite: see https://github.com/zhubiaook/selfup/issues/56#issuecomment-656405955
+// overwrite: see https://github.com/rainkfun/selfup/issues/56#issuecomment-656405955
 func overwrite(dst, src string) error {
 	old := strings.TrimSuffix(dst, ".exe") + "-old.exe"
 	if err := move(old, dst); err != nil {

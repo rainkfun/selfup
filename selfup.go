@@ -9,7 +9,7 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/zhubiaook/selfup/fetcher"
+	"github.com/rainkfun/selfup/fetcher"
 )
 
 const (

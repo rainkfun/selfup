@@ -1,4 +1,4 @@
-module github.com/zhubiaook/selfup
+module github.com/rainkfun/selfup
 
 go 1.21
 

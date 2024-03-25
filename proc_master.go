@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"github.com/rainkfun/go-kit/hash"
-	"github.com/zhubiaook/selfup/fetcher"
+	"github.com/rainkfun/selfup/fetcher"
 )
 
 var (
