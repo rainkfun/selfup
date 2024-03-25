@@ -5,7 +5,6 @@ package selfup
 import (
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"runtime"
 	"time"
@@ -47,10 +46,6 @@ type Config struct {
 	//PreUpgrade runs after a binary has been retrieved, user defined checks
 	//can be run here and returning an error will cancel the upgrade.
 	PreUpgrade func(tempBinaryPath string) error
-	//Debug enables all [selfup] logs.
-	Debug bool
-	//NoWarn disables warning [selfup] logs.
-	NoWarn bool
 	//NoRestart disables all restarts, this option essentially converts
 	//the RestartSignal into a "ShutdownSignal".
 	NoRestart bool
@@ -99,10 +94,10 @@ func Run(c Config) {
 	err := runErr(&c)
 	if err != nil {
 		if c.Required {
-			log.Fatalf("[selfup] %s", err)
-		} else if c.Debug || !c.NoWarn {
-			log.Printf("[selfup] disabled. run failed: %s", err)
+			mslog.Error("selfup disabled, run failed", "err", err)
+			os.Exit(1)
 		}
+		mslog.Info("selfup disabled, run failed", "err", err)
 		c.Program(DisabledState)
 		return
 	}
