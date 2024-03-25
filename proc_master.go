@@ -1,13 +1,12 @@
 package selfup
 
 import (
-	"bytes"
 	"crypto/rand"
-	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
+
 	"net"
 	"os"
 	"os/exec"
@@ -18,9 +17,15 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/rainkfun/go-kit/hash"
+	"github.com/zhubiaook/selfup/fetcher"
 )
 
-var tmpBinPath = filepath.Join(os.TempDir(), "selfup-"+token()+extension())
+var (
+	tmpBinPath = filepath.Join(os.TempDir(), "selfup-"+token()+extension())
+	mslog      = slog.With(slog.String("process", "selfup-master"))
+)
 
 // a selfup master process
 type master struct {
@@ -30,7 +35,7 @@ type master struct {
 	slaveExtraFiles     []*os.File
 	binPath, tmpBinPath string
 	binPerms            os.FileMode
-	binHash             []byte
+	binHash             string
 	restartMux          sync.Mutex
 	restarting          bool
 	restartedAt         time.Time
@@ -42,13 +47,14 @@ type master struct {
 }
 
 func (mp *master) run() error {
-	mp.debugf("run")
+	mslog.Debug("run")
+	// TMP: set mp.binHash
 	if err := mp.checkBinary(); err != nil {
 		return err
 	}
 	if mp.Config.Fetcher != nil {
 		if err := mp.Config.Fetcher.Init(); err != nil {
-			mp.warnf("fetcher init failed (%s). fetcher disabled.", err)
+			mslog.Warn("fetcher init failed, fetcher disabled.", "err", err)
 			mp.Config.Fetcher = nil
 		}
 	}
@@ -79,15 +85,15 @@ func (mp *master) checkBinary() error {
 		//copy permissions
 		mp.binPerms = info.Mode()
 	}
-	f, err := os.Open(binPath)
+	data, err := os.ReadFile(binPath)
 	if err != nil {
 		return fmt.Errorf("cannot read binary (%s)", err)
 	}
-	//initial hash of file
-	hash := sha1.New()
-	io.Copy(hash, f)
-	mp.binHash = hash.Sum(nil)
-	f.Close()
+	digest, err := hash.XXH64SumString(data)
+	if err != nil {
+		return fmt.Errorf("cannot hash binary (%s)", err)
+	}
+	mp.binHash = digest
 	//test bin<->tmpbin moves
 	if mp.Config.Fetcher != nil {
 		if err := move(tmpBinPath, mp.binPath); err != nil {
@@ -105,7 +111,7 @@ func (mp *master) setupSignalling() {
 	mp.restarted = make(chan bool)
 	mp.descriptorsReleased = make(chan bool)
 	//read all master process signals
-	signals := make(chan os.Signal)
+	signals := make(chan os.Signal, 1)
 	signal.Notify(signals)
 	go func() {
 		for s := range signals {
@@ -125,29 +131,29 @@ func (mp *master) handleSignal(s os.Signal) {
 	//to the master process that, the file
 	//descriptors have been released
 	if mp.awaitingUSR1 && s == SIGUSR1 {
-		mp.debugf("signaled, sockets ready")
+		mslog.Debug("signaled, sockets ready")
 		mp.awaitingUSR1 = false
 		mp.descriptorsReleased <- true
 	} else
 	//while the slave process is running, proxy
 	//all signals through
 	if mp.slaveCmd != nil && mp.slaveCmd.Process != nil {
-		mp.debugf("proxy signal (%s)", s)
+		mslog.Debug("proxy signal", "singal", s)
 		mp.sendSignal(s)
 	} else
 	//otherwise if not running, kill on CTRL+c
 	if s == os.Interrupt {
-		mp.debugf("interupt with no slave")
+		mslog.Debug("interupt with no slave")
 		os.Exit(1)
 	} else {
-		mp.debugf("signal discarded (%s), no slave process", s)
+		mslog.Debug("signal discarded, no slave process", "singal", s)
 	}
 }
 
 func (mp *master) sendSignal(s os.Signal) {
 	if mp.slaveCmd != nil && mp.slaveCmd.Process != nil {
 		if err := mp.slaveCmd.Process.Signal(s); err != nil {
-			mp.debugf("signal failed (%s), assuming slave process died unexpectedly", err)
+			mslog.Debug("signal failed, assuming slave process died unexpectedly", "err", err)
 			os.Exit(1)
 		}
 	}
@@ -199,29 +205,32 @@ func (mp *master) fetch() {
 		return //skip if restarting
 	}
 	if mp.printCheckUpdate {
-		mp.debugf("checking for updates...")
+		mslog.Debug("checking for updates...")
 	}
-	reader, err := mp.Fetcher.Fetch()
+	binStat := &fetcher.BinStat{
+		Hash: mp.binHash,
+	}
+	reader, err := mp.Fetcher.Fetch(binStat)
 	if err != nil {
-		mp.debugf("failed to get latest version: %s", err)
+		mslog.Debug("failed to get latest version", "err", err)
 		return
 	}
 	if reader == nil {
 		if mp.printCheckUpdate {
-			mp.debugf("no updates")
+			mslog.Debug("no updates")
 		}
 		mp.printCheckUpdate = false
 		return //fetcher has explicitly said there are no updates
 	}
 	mp.printCheckUpdate = true
-	mp.debugf("streaming update...")
+	mslog.Debug("streaming update...")
 	//optional closer
 	if closer, ok := reader.(io.Closer); ok {
 		defer closer.Close()
 	}
 	tmpBin, err := os.OpenFile(tmpBinPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
-		mp.warnf("failed to open temp binary: %s", err)
+		mslog.Warn("failed to open temp binary", "err", err)
 		return
 	}
 	defer func() {
@@ -229,41 +238,42 @@ func (mp *master) fetch() {
 		os.Remove(tmpBinPath)
 	}()
 	//tee off to sha1
-	hash := sha1.New()
+	hash := hash.NewXXH64()
 	reader = io.TeeReader(reader, hash)
 	//write to a temp file
 	_, err = io.Copy(tmpBin, reader)
 	if err != nil {
-		mp.warnf("failed to write temp binary: %s", err)
+		mslog.Warn("failed to write temp binary", "err", err)
 		return
 	}
 	//compare hash
-	newHash := hash.Sum(nil)
-	if bytes.Equal(mp.binHash, newHash) {
-		mp.debugf("hash match - skip")
+	s := hash.Sum64()
+	digest := fmt.Sprintf("%x", s)
+	if mp.binHash == digest {
+		mslog.Debug("hash match - skip")
 		return
 	}
 	//copy permissions
 	if err := chmod(tmpBin, mp.binPerms); err != nil {
-		mp.warnf("failed to make temp binary executable: %s", err)
+		mslog.Warn("failed to make temp binary executable", "err", err)
 		return
 	}
 	if err := chown(tmpBin, uid, gid); err != nil {
-		mp.warnf("failed to change owner of binary: %s", err)
+		mslog.Warn("failed to change owner of binary", "err", err)
 		return
 	}
 	if _, err := tmpBin.Stat(); err != nil {
-		mp.warnf("failed to stat temp binary: %s", err)
+		mslog.Warn("failed to stat temp binary", "err", err)
 		return
 	}
 	tmpBin.Close()
 	if _, err := os.Stat(tmpBinPath); err != nil {
-		mp.warnf("failed to stat temp binary by path: %s", err)
+		mslog.Warn("failed to stat temp binary by path", "err", err)
 		return
 	}
 	if mp.Config.PreUpgrade != nil {
 		if err := mp.Config.PreUpgrade(tmpBinPath); err != nil {
-			mp.warnf("user cancelled upgrade: %s", err)
+			mslog.Warn("user cancelled upgrade", "err", err)
 			return
 		}
 	}
@@ -276,7 +286,7 @@ func (mp *master) fetch() {
 	go func() {
 		time.Sleep(5 * time.Second)
 		if !returned {
-			mp.warnf("sanity check against fetched executable timed-out, check selfup is running")
+			mslog.Warn("sanity check against fetched executable timed-out, check selfup is running")
 			if cmd.Process != nil {
 				cmd.Process.Kill()
 			}
@@ -285,20 +295,20 @@ func (mp *master) fetch() {
 	tokenOut, err := cmd.CombinedOutput()
 	returned = true
 	if err != nil {
-		mp.warnf("failed to run temp binary: %s (%s) output \"%s\"", err, tmpBinPath, tokenOut)
+		mslog.Warn("failed to run temp binary", "err", err, "tmp-bin-path", tmpBinPath, "output", tokenOut)
 		return
 	}
 	if tokenIn != string(tokenOut) {
-		mp.warnf("sanity check failed")
+		mslog.Warn("sanity check failed")
 		return
 	}
 	//overwrite!
 	if err := overwrite(mp.binPath, tmpBinPath); err != nil {
-		mp.warnf("failed to overwrite binary: %s", err)
+		mslog.Error("failed to overwrite binary", "err", err)
 		return
 	}
-	mp.debugf("upgraded binary (%x -> %x)", mp.binHash[:12], newHash[:12])
-	mp.binHash = newHash
+	mslog.Info("upgraded binary", "bin-hash", mp.binHash, "new-bin-hash", digest)
+	mp.binHash = digest
 	//binary successfully replaced
 	if !mp.Config.NoRestartAfterFetch {
 		mp.triggerRestart()
@@ -309,13 +319,13 @@ func (mp *master) fetch() {
 
 func (mp *master) triggerRestart() {
 	if mp.restarting {
-		mp.debugf("already graceful restarting")
+		mslog.Debug("already graceful restarting")
 		return //skip
 	} else if mp.slaveCmd == nil || mp.restarting {
-		mp.debugf("no slave process")
+		mslog.Debug("no slave process")
 		return //skip
 	}
-	mp.debugf("graceful restart triggered")
+	mslog.Debug("graceful restart triggered")
 	mp.restarting = true
 	mp.awaitingUSR1 = true
 	mp.signalledAt = time.Now()
@@ -323,10 +333,10 @@ func (mp *master) triggerRestart() {
 	select {
 	case <-mp.restarted:
 		//success
-		mp.debugf("restart success")
+		mslog.Debug("restart success")
 	case <-time.After(mp.TerminateTimeout):
 		//times up mr. process, we did ask nicely!
-		mp.debugf("graceful timeout, forcing exit")
+		mslog.Debug("graceful timeout, forcing exit")
 		mp.sendSignal(os.Kill)
 	}
 }
@@ -342,7 +352,7 @@ func (mp *master) forkLoop() error {
 }
 
 func (mp *master) fork() error {
-	mp.debugf("starting %s", mp.binPath)
+	mslog.Debug("starting", "bin-path", mp.binPath)
 	cmd := exec.Command(mp.binPath)
 	//mark this new process as the "active" slave process.
 	//this process is assumed to be holding the socket files.
@@ -350,7 +360,7 @@ func (mp *master) fork() error {
 	mp.slaveID++
 	//provide the slave process with some state
 	e := os.Environ()
-	e = append(e, envBinID+"="+hex.EncodeToString(mp.binHash))
+	e = append(e, envBinID+"="+mp.binHash)
 	e = append(e, envBinPath+"="+mp.binPath)
 	e = append(e, envSlaveID+"="+strconv.Itoa(mp.slaveID))
 	e = append(e, envIsSlave+"=1")
@@ -391,7 +401,7 @@ func (mp *master) fork() error {
 				}
 			}
 		}
-		mp.debugf("prog exited with %d", code)
+		mslog.Debug("prog exited", "exit-code", code)
 		//if a restarts are disabled or if it was an
 		//unexpected crash, proxy this exit straight
 		//through to the main process
@@ -408,18 +418,6 @@ func (mp *master) fork() error {
 		//result will be discarded.
 	}
 	return nil
-}
-
-func (mp *master) debugf(f string, args ...interface{}) {
-	if mp.Config.Debug {
-		log.Printf("[selfup master] "+f, args...)
-	}
-}
-
-func (mp *master) warnf(f string, args ...interface{}) {
-	if mp.Config.Debug || !mp.Config.NoWarn {
-		log.Printf("[selfup master] "+f, args...)
-	}
 }
 
 func token() string {

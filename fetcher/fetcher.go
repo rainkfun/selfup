@@ -15,22 +15,26 @@ type Interface interface {
 	//then it is assumed there are no updates. Fetch
 	//will be run repeatedly and forever. It is up the
 	//implementation to throttle the fetch frequency.
-	Fetch() (io.Reader, error)
+	Fetch(binStat *BinStat) (io.Reader, error)
+}
+
+type BinStat struct {
+	Hash string
 }
 
 // Func converts a fetch function into the fetcher interface
-func Func(fn func() (io.Reader, error)) Interface {
+func Func(fn func(binStat *BinStat) (io.Reader, error)) Interface {
 	return &fetcher{fn}
 }
 
 type fetcher struct {
-	fn func() (io.Reader, error)
+	fn func(binStat *BinStat) (io.Reader, error)
 }
 
 func (f fetcher) Init() error {
 	return nil //skip
 }
 
-func (f fetcher) Fetch() (io.Reader, error) {
-	return f.fn()
+func (f fetcher) Fetch(binStat *BinStat) (io.Reader, error) {
+	return f.fn(binStat)
 }

@@ -6,6 +6,8 @@ import (
 	"io"
 	"os"
 	"time"
+
+	"github.com/rainkfun/go-kit/hash"
 )
 
 // File checks the provided Path, at the provided
@@ -35,18 +37,17 @@ func (f *File) Init() error {
 }
 
 // Fetch file from the specified Path
-func (f *File) Fetch() (io.Reader, error) {
+func (f *File) Fetch(binStat *BinStat) (io.Reader, error) {
 	//only delay after first fetch
 	if f.delay {
 		time.Sleep(f.Interval)
 	}
 	f.delay = true
-	lastHash := f.hash
 	if err := f.updateHash(); err != nil {
 		return nil, err
 	}
 	// no change
-	if lastHash == f.hash {
+	if binStat.Hash == f.hash {
 		return nil, nil
 	}
 	// changed!
@@ -59,6 +60,7 @@ func (f *File) Fetch() (io.Reader, error) {
 	const rate = 250 * time.Millisecond
 	const total = int(5 * time.Second / rate)
 	attempt := 1
+	lastHash := f.hash
 	for {
 		if attempt == total {
 			file.Close()
@@ -82,19 +84,20 @@ func (f *File) Fetch() (io.Reader, error) {
 }
 
 func (f *File) updateHash() error {
-	file, err := os.Open(f.Path)
+	data, err := os.ReadFile(f.Path)
 	if err != nil {
 		//binary does not exist, skip
 		if os.IsNotExist(err) {
 			return nil
 		}
-		return fmt.Errorf("Open file error: %s", err)
+		return fmt.Errorf("Read file error: %s", err)
 	}
-	defer file.Close()
-	s, err := file.Stat()
+
+	digest, err := hash.XXH64SumString(data)
 	if err != nil {
-		return fmt.Errorf("Get file stat error: %s", err)
+		return fmt.Errorf("Generate hash error: %s", err)
 	}
-	f.hash = fmt.Sprintf("%d|%d", s.ModTime().UnixNano(), s.Size())
+
+	f.hash = digest
 	return nil
 }

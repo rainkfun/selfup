@@ -2,12 +2,16 @@ package selfup
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"net"
 	"os"
 	"os/signal"
 	"strconv"
 	"time"
+)
+
+var (
+	sslog = slog.With(slog.String("process", "selfup-slave"))
 )
 
 var (
@@ -57,7 +61,7 @@ type slave struct {
 
 func (sp *slave) run() error {
 	sp.id = os.Getenv(envSlaveID)
-	sp.debugf("run")
+	sslog.Debug("run", "slave-id", sp.id)
 	sp.state.Enabled = true
 	sp.state.ID = os.Getenv(envBinID)
 	sp.state.StartedAt = time.Now()
@@ -73,7 +77,7 @@ func (sp *slave) run() error {
 	}
 	sp.watchSignal()
 	//run program with state
-	sp.debugf("start program")
+	sslog.Debug("start program", "slave-id", sp.id)
 	sp.Config.Program(sp.state)
 	return nil
 }
@@ -103,12 +107,12 @@ func (sp *slave) initFileDescriptors() error {
 }
 
 func (sp *slave) watchSignal() {
-	signals := make(chan os.Signal)
+	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, sp.Config.RestartSignal)
 	go func() {
 		<-signals
 		signal.Stop(signals)
-		sp.debugf("graceful shutdown requested")
+		sslog.Debug("graceful shutdown requested", "slave-id", sp.id)
 		//master wants to restart,
 		close(sp.state.GracefulShutdown)
 		//release any sockets and notify master
@@ -128,7 +132,7 @@ func (sp *slave) watchSignal() {
 		//start death-timer
 		go func() {
 			time.Sleep(sp.Config.TerminateTimeout)
-			sp.debugf("timeout. forceful shutdown")
+			sslog.Debug("timeout. forceful shutdown")
 			os.Exit(1)
 		}()
 	}()
@@ -137,17 +141,5 @@ func (sp *slave) watchSignal() {
 func (sp *slave) triggerRestart() {
 	if err := sp.masterProc.Signal(sp.Config.RestartSignal); err != nil {
 		os.Exit(1)
-	}
-}
-
-func (sp *slave) debugf(f string, args ...interface{}) {
-	if sp.Config.Debug {
-		log.Printf("[selfup slave#"+sp.id+"] "+f, args...)
-	}
-}
-
-func (sp *slave) warnf(f string, args ...interface{}) {
-	if sp.Config.Debug || !sp.Config.NoWarn {
-		log.Printf("[selfup slave#"+sp.id+"] "+f, args...)
 	}
 }

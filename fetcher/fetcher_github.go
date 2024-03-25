@@ -64,7 +64,7 @@ func (h *Github) Init() error {
 }
 
 // Fetch the binary from the provided Repository
-func (h *Github) Fetch() (io.Reader, error) {
+func (h *Github) Fetch(binStat *BinStat) (io.Reader, error) {
 	//delay fetches after first
 	if h.delay {
 		time.Sleep(h.Interval)

@@ -96,7 +96,7 @@ func GetWin32ProcWithContext(ctx context.Context, pid int32) ([]Win32_Process, e
 	return dst, nil
 }
 
-func WMIQueryWithContext(ctx context.Context, query string, dst interface{}, connectServerArgs ...interface{}) error {
+func WMIQueryWithContext(ctx context.Context, query string, dst any, connectServerArgs ...any) error {
 	if _, ok := ctx.Deadline(); !ok {
 		ctxTimeout, cancel := context.WithTimeout(ctx, Timeout)
 		defer cancel()

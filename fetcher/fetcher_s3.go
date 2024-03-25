@@ -15,9 +15,9 @@ import (
 	"github.com/jpillora/s3"
 )
 
-//S3 uses authenticated HEAD requests to poll the status of a given
-//object. If it detects this file has been updated, it will perform
-//an object GET and return its io.Reader stream.
+// S3 uses authenticated HEAD requests to poll the status of a given
+// object. If it detects this file has been updated, it will perform
+// an object GET and return its io.Reader stream.
 type S3 struct {
 	//Access key falls back to env AWS_ACCESS_KEY, then metadata
 	Access string
@@ -72,7 +72,7 @@ func (s *S3) Init() error {
 }
 
 // Fetch the binary from S3
-func (s *S3) Fetch() (io.Reader, error) {
+func (s *S3) Fetch(binStat *BinStat) (io.Reader, error) {
 	//delay fetches after first
 	if s.delay {
 		time.Sleep(s.Interval)
