@@ -97,7 +97,7 @@ func Run(c Config) {
 			mslog.Error("selfup disabled, run failed", "err", err)
 			os.Exit(1)
 		}
-		mslog.Info("selfup disabled, run failed", "err", err)
+		mslog.Error("selfup disabled, run failed", "err", err)
 		c.Program(DisabledState)
 		return
 	}

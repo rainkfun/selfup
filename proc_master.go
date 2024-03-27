@@ -205,19 +205,19 @@ func (mp *master) fetch() {
 		return //skip if restarting
 	}
 	if mp.printCheckUpdate {
-		mslog.Debug("checking for updates...")
+		mslog.Info("checking for updates...")
 	}
 	binStat := &fetcher.BinStat{
 		Hash: mp.binHash,
 	}
 	reader, err := mp.Fetcher.Fetch(binStat)
 	if err != nil {
-		mslog.Debug("failed to get latest version", "err", err)
+		mslog.Warn("failed to get latest version", "err", err)
 		return
 	}
 	if reader == nil {
 		if mp.printCheckUpdate {
-			mslog.Debug("no updates")
+			mslog.Info("no updates")
 		}
 		mp.printCheckUpdate = false
 		return //fetcher has explicitly said there are no updates
@@ -304,7 +304,7 @@ func (mp *master) fetch() {
 	}
 	//overwrite!
 	if err := overwrite(mp.binPath, tmpBinPath); err != nil {
-		mslog.Error("failed to overwrite binary", "err", err)
+		mslog.Warn("failed to overwrite binary", "err", err)
 		return
 	}
 	mslog.Info("upgraded binary", "bin-hash", mp.binHash, "new-bin-hash", digest)
