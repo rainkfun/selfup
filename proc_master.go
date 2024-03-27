@@ -236,7 +236,7 @@ func (mp *master) fetch() {
 	}
 	defer func() {
 		tmpBin.Close()
-		os.Remove(tmpBinPath)
+		// os.Remove(tmpBinPath)
 	}()
 	//tee off to sha1
 	hash := hash.NewXXH64()
