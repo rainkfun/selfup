@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"strings"
 
 	"net"
 	"os"
@@ -298,8 +299,8 @@ func (mp *master) fetch() {
 		mslog.Warn("failed to run temp binary", "err", err, "tmp-bin-path", tmpBinPath, "output", tokenOut)
 		return
 	}
-	if tokenIn != string(tokenOut) {
-		mslog.Warn("sanity check failed")
+	if !strings.Contains(string(tokenOut), tokenIn) {
+		mslog.Warn("sanity check failed", "token-in", tokenIn, "token-out", tokenOut)
 		return
 	}
 	//overwrite!
