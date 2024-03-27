@@ -155,7 +155,7 @@ func (mp *master) sendSignal(s os.Signal) {
 	if mp.slaveCmd != nil && mp.slaveCmd.Process != nil {
 		if err := mp.slaveCmd.Process.Signal(s); err != nil {
 			mslog.Debug("signal failed, assuming slave process died unexpectedly", "err", err)
-			os.Exit(1)
+			// os.Exit(1)
 		}
 	}
 }
