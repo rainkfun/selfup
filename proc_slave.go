@@ -78,7 +78,7 @@ func (sp *slave) run() error {
 	sp.watchSignal()
 	//run program with state
 	sslog.Debug("start program", "slave-id", sp.id)
-	sp.Config.Program(sp.state)
+	sp.Config.Program(&sp.state)
 	return nil
 }
 

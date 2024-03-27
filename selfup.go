@@ -28,7 +28,7 @@ type Config struct {
 	//running the program in the main process on failure.
 	Required bool
 	//Program's main function
-	Program func(state State)
+	Program func(state *State)
 	//Program's zero-downtime socket listening address (set this or Addresses)
 	Address string
 	//Program's zero-downtime socket listening addresses (set this or Address)
@@ -98,7 +98,7 @@ func Run(c Config) {
 			os.Exit(1)
 		}
 		mslog.Error("selfup disabled, run failed", "err", err)
-		c.Program(DisabledState)
+		c.Program(&DisabledState)
 		return
 	}
 	os.Exit(0)
