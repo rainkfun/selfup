@@ -49,7 +49,6 @@ type master struct {
 
 func (mp *master) run() error {
 	mslog.Debug("run")
-	// TMP: set mp.binHash
 	if err := mp.checkBinary(); err != nil {
 		return err
 	}
@@ -122,32 +121,30 @@ func (mp *master) setupSignalling() {
 }
 
 func (mp *master) handleSignal(s os.Signal) {
-	if s == mp.RestartSignal {
-		//user initiated manual restart
+	switch {
+	case s == mp.RestartSignal:
+		// user initiated manual restart
 		go mp.triggerRestart()
-	} else if s.String() == "child exited" {
+	case s.String() == "child exited":
 		// will occur on every restart, ignore it
-	} else
-	//**during a restart** a SIGUSR1 signals
-	//to the master process that, the file
-	//descriptors have been released
-	if mp.awaitingUSR1 && s == SIGUSR1 {
+	case mp.awaitingUSR1 && s == syscall.SIGUSR1:
+		//**during a restart** a SIGUSR1 signals
+		//to the master process that, the file
+		//descriptors have been released
 		mslog.Debug("signaled, sockets ready")
 		mp.awaitingUSR1 = false
 		mp.descriptorsReleased <- true
-	} else
-	//while the slave process is running, proxy
-	//all signals through
-	if mp.slaveCmd != nil && mp.slaveCmd.Process != nil {
-		mslog.Debug("proxy signal", "singal", s)
+	case mp.slaveCmd != nil && mp.slaveCmd.Process != nil:
+		//while the slave process is running, proxy
+		//all signals through
+		mslog.Debug("proxy signal", "signal", s)
 		mp.sendSignal(s)
-	} else
-	//otherwise if not running, kill on CTRL+c
-	if s == os.Interrupt {
-		mslog.Debug("interupt with no slave")
+	case s == os.Interrupt:
+		//otherwise if not running, kill on CTRL+c
+		mslog.Debug("interrupt with no slave")
 		os.Exit(1)
-	} else {
-		mslog.Debug("signal discarded, no slave process", "singal", s)
+	default:
+		mslog.Debug("signal discarded, no slave process", "signal", s)
 	}
 }
 
